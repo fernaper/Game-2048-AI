@@ -5,25 +5,71 @@ import time
 import gym
 import numpy as np
 import tflearn
+import click
+import config as conf
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
 from statistics import mean, median
 from collections import Counter
 
-# MANUAL
-#gamegrid = puzzle.GameGrid()
-#gamegrid.mainloop()
+@click.group()
+def cli():
+    pass
 
+@cli.command('play')
+@click.option('--ia/--manual', default=True)
+@click.option('--model', default='basic')
+@click.option('--games', default=1)
+def play(ia, model, games):
+    if ia:
+        ia_move(model, True, games)
+    else:
+        manual_move()
+
+@cli.command('train')
+@click.option('--model', default='basic')
+@click.option('--games', default=conf.initial_games)
+def train(model, games):
+    training_data = initial_population(games)
+    m = train_model(training_data)
+    m.save('models/{}.model'.format(model))
+
+# MANUAL
 def manual_move():
     gamegrid = puzzle.GameGrid()
     gamegrid.mainloop()
 
 # IA
-options = ["'w'","'a'","'s'","'d'"]
-LR = 1e-3
-goal_steps = 20000
-score_requirement = 2048
-initial_games = 10000
+def ia_move(model_name, load, games):
+    if not load:
+        training_data = initial_population()
+        model = train_model(training_data)
+        model.save('models/{}.model'.format(model_name))
+    else:
+        model = neural_network_model(16)
+        try:
+            model.load('models/{}.model'.format(model_name))
+        except Exception as e:
+            print('Model not found')
+            return
+
+    scores = []
+    game_memory = []
+    choices = []
+
+    for each_game in range(games):
+        score, memory, choices = visual_ia_game(model)
+        scores.append(score)
+        game_memory.append(memory)
+        choices.append(choices)
+
+    print('Average score: ', sum(scores)/len(scores))
+    print('w: {}%, a: {}%, s: {}%, d: {}%'.format(
+        round(choices.count("'w'")/len(choices)*100,2),
+        round(choices.count("'a'")/len(choices)*100,2),
+        round(choices.count("'s'")/len(choices)*100,2),
+        round(choices.count("'d'")/len(choices)*100,2)
+    ))
 
 def sorted_prediction(prediction):
     return sorted(range(len(prediction)), key=lambda k: prediction[k], reverse=True)
@@ -36,17 +82,18 @@ def equals_grid(a, b):
             return False
     return True
 
+# Game for the ia that you can see
 def visual_ia_game(model):
     memory = []
     prev_obs = []
     choices = []
     gamegrid = puzzle.GameGrid()
-    for _ in range(goal_steps):
+    for _ in range(conf.goal_steps):
         prev_obs = np.concatenate(gamegrid.matrix, axis=0)
         prediction = sorted_prediction(model.predict(prev_obs.reshape(-1, len(prev_obs),1))[0])
 
         for i in range(len(prediction)):
-            action = options[prediction[i]]
+            action = conf.options[prediction[i]]
             done = gamegrid.move(action)
 
             if not equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_obs):
@@ -69,22 +116,22 @@ def visual_ia_game(model):
     return gamegrid.score, memory, choices
 
 # We are goint to train it without any GUI becouse it is more efficient
-def initial_population():
+def initial_population(games):
     training_data = []
     scores = []
     accepted_scores = []
     i = 0
-    while i < initial_games or len(accepted_scores) < initial_games*0.2:
+    while i < games or len(accepted_scores) < games*0.2:
         gamegrid = inv_puzzle.Game()
         score = 0
         game_memory = []
         prev_observation = []
 
-        for _ in range(goal_steps):
+        for _ in range(conf.goal_steps):
             prev_observation = np.concatenate(gamegrid.matrix, axis=0)
 
             while equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
-                action = random.choice(options)
+                action = random.choice(conf.options)
                 done = gamegrid.move(action)
 
             game_memory.append([prev_observation, action])
@@ -93,9 +140,9 @@ def initial_population():
             if done:
                 break
 
-        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i+1, len(accepted_scores), initial_games*0.2, score))
+        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i+1, len(accepted_scores), games*0.2, score))
 
-        if score >= score_requirement:
+        if score >= conf.score_requirement:
             accepted_scores.append(score)
 
             for data in game_memory:
@@ -113,7 +160,7 @@ def initial_population():
         i += 1
 
     training_data_save = np.array(training_data)
-    np.save('saved.npy', training_data_save)
+    #np.save('saved.npy', training_data_save)
 
     print('Average accepted score: ', mean(accepted_scores))
     print('Median accepted score: ', median(accepted_scores))
@@ -121,6 +168,7 @@ def initial_population():
 
     return training_data
 
+# The neural network model that uses the IA
 def neural_network_model(input_size):
     network = input_data(shape=[None, input_size, 1], name='input')
 
@@ -140,12 +188,13 @@ def neural_network_model(input_size):
     network = dropout(network, 0.8)
 
     network = fully_connected(network, 4, activation='softmax')
-    network = regression(network, optimizer='adam', learning_rate=LR, loss='categorical_crossentropy', name='targets')
+    network = regression(network, optimizer='adam', learning_rate=conf.LR, loss='categorical_crossentropy', name='targets')
 
     model = tflearn.DNN(network, tensorboard_dir='log')
 
     return model
 
+# Here we train the model
 def train_model(training_data, model=False):
     X = np.array([i[0] for i in training_data]).reshape(-1, len(training_data[0][0]), 1)
     y = [i[1] for i in training_data]
@@ -157,37 +206,5 @@ def train_model(training_data, model=False):
 
     return model
 
-
 if __name__ == "__main__":
-    #manual_move()
-    #training_data = initial_population()
-    #model = train_model(training_data)
-    #model.save('basic.model')
-
-    model = neural_network_model(16)
-    model.load('basic.model')
-    scores = []
-    game_memory = []
-    choices = []
-
-    '''
-    model = neural_network_model(264707)
-    model.load('basic.model')
-    '''
-
-    for each_game in range(10):
-        score, memory, choices = visual_ia_game(model)
-        scores.append(score)
-        game_memory.append(memory)
-        choices.append(choices)
-
-    print('Average score: ', sum(scores)/len(scores))
-    print('w: {}%, a: {}%, s: {}%, d: {}%'.format(
-        round(choices.count("'w'")/len(choices)*100,2),
-        round(choices.count("'a'")/len(choices)*100,2),
-        round(choices.count("'s'")/len(choices)*100,2),
-        round(choices.count("'d'")/len(choices)*100,2)
-    ))
-    #some_random_games()
-    #first_basic_moves()
-    #manual_move()
+    cli()
