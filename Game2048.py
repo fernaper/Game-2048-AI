@@ -115,13 +115,38 @@ def visual_ia_game(model):
 
     return gamegrid.score, memory, choices
 
+def corner_choice(matrix, options, invalid_moves):
+    one_line_matrix = np.concatenate(matrix, axis=0)
+    index_max_value = one_line_matrix.argmax(axis=0)
+
+    line = index_max_value / len(matrix[0])
+    column = index_max_value % len(matrix[0])
+
+    if column == 0 and options[1] not in invalid_moves:
+        if random.random() < 0.5:
+            return options[1] # left
+    if column == len(matrix[0])-1 and options[3] not in invalid_moves:
+        if random.random() < 0.5:
+            return options[3] # right
+    if line == 0 and options[0] not in invalid_moves:
+        if random.random() < 0.5:
+            return options[0] # up
+    if line == len(matrix[0]) and options[2] not in invalid_moves:
+        if random.random() < 0.5:
+            return options[2] # down
+
+    move = [x for x in options if x not in invalid_moves]
+    action = random.choice(move)
+    return action
+
 # We are goint to train it without any GUI becouse it is more efficient
-def initial_population(games):
+def initial_population(games, heuristic='corner'):
     training_data = []
     scores = []
     accepted_scores = []
     i = 0
-    while i < games or len(accepted_scores) < games*0.2:
+    print('Starting to train ...')
+    while i < games or len(accepted_scores) < int(games*0.2):
         gamegrid = inv_puzzle.Game()
         score = 0
         game_memory = []
@@ -129,9 +154,15 @@ def initial_population(games):
 
         for _ in range(conf.goal_steps):
             prev_observation = np.concatenate(gamegrid.matrix, axis=0)
-
+            invalid_moves = []
             while equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
-                action = random.choice(conf.options)
+                if heuristic == 'random':
+                    move = [x for x in conf.options if x not in invalid_moves]
+                    action = random.choice(move)
+                elif heuristic == 'corner':
+                    action = corner_choice(gamegrid.matrix, conf.options, invalid_moves)
+
+                invalid_moves.append(action)
                 done = gamegrid.move(action)
 
             game_memory.append([prev_observation, action])
@@ -140,7 +171,7 @@ def initial_population(games):
             if done:
                 break
 
-        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i+1, len(accepted_scores), games*0.2, score))
+        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i+1, len(accepted_scores), int(games*0.2), score))
 
         if score >= conf.score_requirement:
             accepted_scores.append(score)
