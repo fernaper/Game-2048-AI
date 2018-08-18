@@ -139,8 +139,23 @@ def corner_choice(matrix, options, invalid_moves):
     action = random.choice(move)
     return action
 
+def left_down_corner_choice(matrix, options, invalid_moves):
+    one_line_matrix = np.concatenate(matrix, axis=0)
+    index_max_value = one_line_matrix.argmax(axis=0)
+
+    line = index_max_value / len(matrix[0])
+    column = index_max_value % len(matrix[0])
+
+    if (column == 0 or random.random() < 0.5) and options[1] not in invalid_moves:
+        return options[1] # left
+    if (line == len(matrix[0]) or random.random() < 0.5) and options[2] not in invalid_moves:
+        return options[2] # down
+    move = [x for x in options if x not in invalid_moves]
+    action = random.choice(move)
+    return action
+
 # We are goint to train it without any GUI becouse it is more efficient
-def initial_population(games, heuristic='corner'):
+def initial_population(games, heuristic='one_corner'):
     training_data = []
     scores = []
     accepted_scores = []
@@ -161,6 +176,8 @@ def initial_population(games, heuristic='corner'):
                     action = random.choice(move)
                 elif heuristic == 'corner':
                     action = corner_choice(gamegrid.matrix, conf.options, invalid_moves)
+                elif heuristic == 'one_corner':
+                    action = left_down_corner_choice(gamegrid.matrix, conf.options, invalid_moves)
 
                 invalid_moves.append(action)
                 done = gamegrid.move(action)
