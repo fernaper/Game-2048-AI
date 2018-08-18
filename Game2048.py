@@ -29,8 +29,9 @@ def play(ia, model, games):
 @cli.command('train')
 @click.option('--model', default='basic')
 @click.option('--games', default=conf.initial_games)
-def train(model, games):
-    training_data = initial_population(games)
+@click.option('--heuristic', default='random')
+def train(model, games, heuristic):
+    training_data = initial_population(games, heuristic)
     m = train_model(training_data)
     m.save('models/{}.model'.format(model))
 
@@ -42,7 +43,7 @@ def manual_move():
 # IA
 def ia_move(model_name, load, games):
     if not load:
-        training_data = initial_population()
+        training_data = initial_population(games)
         model = train_model(training_data)
         model.save('models/{}.model'.format(model_name))
     else:
@@ -155,7 +156,7 @@ def left_down_corner_choice(matrix, options, invalid_moves):
     return action
 
 # We are goint to train it without any GUI becouse it is more efficient
-def initial_population(games, heuristic='one_corner'):
+def initial_population(games, heuristic='random'):
     training_data = []
     scores = []
     accepted_scores = []
