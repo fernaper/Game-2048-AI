@@ -39,7 +39,7 @@ def add_two(mat):
         a=randint(0,len(mat)-1)
         b=randint(0,len(mat)-1)
     mat[a][b]=2
-    return mat
+    return mat, [a,b]
 
 ###########
 # Task 1c #

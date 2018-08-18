@@ -38,7 +38,48 @@ def train(model, games, heuristic):
 # MANUAL
 def manual_move():
     gamegrid = puzzle.GameGrid()
-    gamegrid.mainloop()
+    training_data = []
+    game_memory = []
+    prev_observation = []
+    scores = []
+
+    try:
+        training_data = np.load('saves/manual.npy').tolist()
+        print('Continuing manual training')
+    except Exception as e:
+        print('First manual training, good luck!')
+
+    while not gamegrid.is_end_game:
+        prev_observation = np.concatenate(gamegrid.matrix, axis=0)
+        while not gamegrid.moved:
+            gamegrid.update_idletasks()
+            gamegrid.update()
+
+        gamegrid.moved = False
+        # Only if it is an active move, save it
+        if not equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
+            if not gamegrid.undo:
+                # Redo this movement
+                game_memory.pop()
+            else:
+                action = gamegrid.last_move
+                game_memory.append([prev_observation, action])
+
+    if gamegrid.score >= conf.score_requirement:
+        accepted_scores.append(score)
+
+        for data in game_memory:
+            if data[1] == conf.options[0]:
+                output = [1,0,0,0]
+            elif data[1] == conf.options[1]:
+                output = [0,1,0,0]
+            elif data[1] == conf.options[2]:
+                output = [0,0,1,0]
+            elif data[1] == conf.options[3]:
+                output = [0,0,0,1]
+            training_data.append([data[0], output])
+    scores.append(score)
+    np.save('saves/manual.npy',np.array(training_data))
 
 # IA
 def ia_move(model_name, load, games):
@@ -66,14 +107,11 @@ def ia_move(model_name, load, games):
 
     print('Average score: ', sum(scores)/len(scores))
     print('w: {}%, a: {}%, s: {}%, d: {}%'.format(
-        round(choices.count("'w'")/len(choices)*100,2),
-        round(choices.count("'a'")/len(choices)*100,2),
-        round(choices.count("'s'")/len(choices)*100,2),
-        round(choices.count("'d'")/len(choices)*100,2)
+        round(choices.count(conf.options[0])/len(choices)*100,2),
+        round(choices.count(conf.options[1])/len(choices)*100,2),
+        round(choices.count(conf.options[2])/len(choices)*100,2),
+        round(choices.count(conf.options[3])/len(choices)*100,2)
     ))
-
-def sorted_prediction(prediction):
-    return sorted(range(len(prediction)), key=lambda k: prediction[k], reverse=True)
 
 def equals_grid(a, b):
     if len(a) != len(b):
@@ -82,6 +120,9 @@ def equals_grid(a, b):
         if a[i] != b[i]:
             return False
     return True
+
+def sorted_prediction(prediction):
+    return sorted(range(len(prediction)), key=lambda k: prediction[k], reverse=True)
 
 # Game for the ia that you can see
 def visual_ia_game(model):
