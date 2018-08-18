@@ -42,6 +42,7 @@ def manual_move():
     game_memory = []
     prev_observation = []
     scores = []
+    accepted_scores = []
 
     try:
         training_data = np.load('saves/manual.npy').tolist()
@@ -58,7 +59,7 @@ def manual_move():
         gamegrid.moved = False
         # Only if it is an active move, save it
         if not equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
-            if not gamegrid.undo:
+            if not gamegrid.can_undo:
                 # Redo this movement
                 game_memory.pop()
             else:
@@ -66,7 +67,7 @@ def manual_move():
                 game_memory.append([prev_observation, action])
 
     if gamegrid.score >= conf.score_requirement:
-        accepted_scores.append(score)
+        accepted_scores.append(gamegrid.score)
 
         for data in game_memory:
             if data[1] == conf.options[0]:
@@ -78,8 +79,10 @@ def manual_move():
             elif data[1] == conf.options[3]:
                 output = [0,0,0,1]
             training_data.append([data[0], output])
-    scores.append(score)
-    np.save('saves/manual.npy',np.array(training_data))
+    scores.append(gamegrid.score)
+
+    if training_data:
+        np.save('saves/manual.npy',np.array(training_data))
 
 # IA
 def ia_move(model_name, load, games):

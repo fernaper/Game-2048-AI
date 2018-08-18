@@ -30,7 +30,7 @@ class GameGrid(Frame):
         self.is_end_game = False
         self.moved = False
         self.last_move = ''
-        self.undo = False
+        self.can_undo = False
         self.last_two = (0,0)
         self.visual = visual
         self.grid()
@@ -93,12 +93,17 @@ class GameGrid(Frame):
             self.update_idletasks()
 
     def key_down(self, event):
+        if event.keycode == conf.end_game:
+            self.is_end_game = True
+            self.moved = True
+            return True
+
         if event.keycode == conf.undo:
-            if self.undo:
+            if self.can_undo:
                 print('Creating undo')
                 self.matrix = self.prev_matrix
                 self.score = self.prev_score
-                self.undo = False
+                self.can_undo = False
                 self.update_grid_cells()
             return True
 
@@ -118,12 +123,12 @@ class GameGrid(Frame):
             self.master.title('2048 - Score: {}'.format(self.score))
             #print('Score: {}'.format(self.score))
             if done:
-                if self.undo:
+                if self.can_undo:
                     self.matrix, self.last_two = add_two(self.matrix)
                 else:
                     self.matrix[self.last_two[0]][self.last_two[1]] = 2
 
-                self.undo = True
+                self.can_undo = True
                 self.moved = True
                 self.prev_matrix = prev_m
                 self.prev_score = prev_s
