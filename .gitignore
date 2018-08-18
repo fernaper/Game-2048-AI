@@ -3,3 +3,4 @@ log/*
 models/*
 saves/*
 saved.npy
+checkpoint
