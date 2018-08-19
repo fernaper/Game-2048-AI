@@ -30,8 +30,12 @@ def play(ia, model, games):
 @click.option('--model', default='basic')
 @click.option('--games', default=conf.initial_games)
 @click.option('--heuristic', default='random')
-def train(model, games, heuristic):
-    training_data = initial_population(games, heuristic)
+@click.option('--training_data', default='')
+def train(model, games, heuristic, training_data):
+    if training_data == '':
+        training_data = initial_population(games, heuristic)
+    else:
+        training_data = np.load('saves/{}.npy'.format(training_data))
     m = train_model(training_data)
     m.save('models/{}.model'.format(model))
 
