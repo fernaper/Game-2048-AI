@@ -6,6 +6,8 @@ import gym
 import numpy as np
 import tflearn
 import click
+import copy
+
 import config as conf
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
@@ -17,12 +19,14 @@ def cli():
     pass
 
 @cli.command('play')
-@click.option('--ia/--manual', default=True)
+@click.option('--heuristic', default='ia')
 @click.option('--model', default='basic')
 @click.option('--games', default=1)
-def play(ia, model, games):
-    if ia:
+def play(heuristic, model, games):
+    if heuristic == 'ia':
         ia_move(model, True, games)
+    elif heuristic == 'explorer':
+        explorer_game()
     else:
         manual_move()
 
@@ -164,6 +168,31 @@ def visual_ia_game(model):
 
     return gamegrid.score, memory, choices
 
+def explorer_game():
+    memory = []
+    prev_obs = []
+    choices = []
+    gamegrid = puzzle.GameGrid()
+    for _ in range(conf.goal_steps):
+        action, _ = explorer_move(inv_puzzle.Game(gamegrid.score, gamegrid.first, gamegrid.matrix), conf.options, 5) # Max depth == 5
+        done = gamegrid.move(action)
+
+        choices.append(action)
+        memory = [gamegrid.matrix, action]
+
+        gamegrid.update_idletasks()
+        gamegrid.update()
+
+        if done:
+            break
+
+        time.sleep(0.01)
+
+    gamegrid.destroy()
+    time.sleep(1)
+
+    return gamegrid.score, memory, choices
+
 def corner_choice(matrix, options, invalid_moves):
     one_line_matrix = np.concatenate(matrix, axis=0)
     index_max_value = one_line_matrix.argmax(axis=0)
@@ -203,6 +232,25 @@ def left_down_corner_choice(matrix, options, invalid_moves):
     action = random.choice(move)
     return action
 
+def explorer_move(gamegrid, options, depth):
+    score = 0
+    move = options[0]
+    gg = np.concatenate(gamegrid.matrix, axis=0)
+
+    for i in range(4):
+        g = copy.copy(gamegrid)
+        done = g.move(options[i])
+        own_s = g.score - gamegrid.score
+        # Our base case is when depth reached (0), finish the game or invalid move (the last one is just for truncate)
+        if depth > 0 and not done and not equals_grid(gg, np.concatenate(g.matrix, axis=0)):
+            m, s = explorer_move(g, options, depth - 1)
+            own_s += s
+        # Here we choose just the best option
+        if own_s > score:
+            score = own_s
+            move = options[i]
+    return move, score
+
 # We are goint to train it without any GUI becouse it is more efficient
 def initial_population(games, heuristic='random'):
     training_data = []
@@ -227,6 +275,8 @@ def initial_population(games, heuristic='random'):
                     action = corner_choice(gamegrid.matrix, conf.options, invalid_moves)
                 elif heuristic == 'one_corner':
                     action = left_down_corner_choice(gamegrid.matrix, conf.options, invalid_moves)
+                elif heuristic == 'explorer':
+                    action, s = explorer_move(gamegrid, conf.options, 2) # Max depth == 2
 
                 invalid_moves.append(action)
                 done = gamegrid.move(action)
@@ -237,24 +287,17 @@ def initial_population(games, heuristic='random'):
             if done:
                 break
 
-        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i+1, len(accepted_scores), int(games*0.2), score))
-
         if score >= conf.score_requirement:
             accepted_scores.append(score)
 
             for data in game_memory:
-                if data[1] == "'w'":
-                    output = [1,0,0,0]
-                elif data[1] == "'a'":
-                    output = [0,1,0,0]
-                elif data[1] == "'s'":
-                    output = [0,0,1,0]
-                elif data[1] == "'d'":
-                    output = [0,0,0,1]
+                output = [0,0,0,0]
+                output[conf.options.index(data[1])] = 1
                 training_data.append([data[0], output])
 
         scores.append(score)
         i += 1
+        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i, len(accepted_scores), int(games*0.2), score))
 
     training_data_save = np.array(training_data)
     #np.save('saved.npy', training_data_save)

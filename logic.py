@@ -33,13 +33,17 @@ def new_game(n):
 # 1 mark for creating the correct loop
 
 def add_two(mat):
+    if random() < 0.9:
+        number = 2
+    else:
+        number = 4
     a=randint(0,len(mat)-1)
     b=randint(0,len(mat)-1)
     while(mat[a][b]!=0):
         a=randint(0,len(mat)-1)
         b=randint(0,len(mat)-1)
-    mat[a][b]=2
-    return mat, [a,b]
+    mat[a][b]=number
+    return mat, [a,b], number
 
 ###########
 # Task 1c #

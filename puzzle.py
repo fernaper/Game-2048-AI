@@ -32,6 +32,7 @@ class GameGrid(Frame):
         self.last_move = ''
         self.can_undo = False
         self.last_two = (0,0)
+        self.last_two_value = 2
         self.visual = visual
         self.grid()
         self.master.title('2048 - Score: 0')
@@ -75,8 +76,8 @@ class GameGrid(Frame):
     def init_matrix(self):
         self.matrix = new_game(4)
 
-        self.matrix,_=add_two(self.matrix)
-        self.matrix,self.last_two=add_two(self.matrix)
+        self.matrix,_,_=add_two(self.matrix)
+        self.matrix,self.last_two,self.last_two_value=add_two(self.matrix)
 
     def update_grid_cells(self):
         if self.visual:
@@ -123,10 +124,10 @@ class GameGrid(Frame):
             self.master.title('2048 - Score: {}'.format(self.score))
             #print('Score: {}'.format(self.score))
             if done:
-                if self.can_undo:
-                    self.matrix, self.last_two = add_two(self.matrix)
+                if self.can_undo or self.matrix[self.last_two[0]][self.last_two[1]] != 0:
+                    self.matrix, self.last_two, self.last_two_value = add_two(self.matrix)
                 else:
-                    self.matrix[self.last_two[0]][self.last_two[1]] = 2
+                    self.matrix[self.last_two[0]][self.last_two[1]] = self.last_two_value
 
                 self.can_undo = True
                 self.moved = True
