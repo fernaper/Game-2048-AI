@@ -1,6 +1,6 @@
 ![Game 2048](https://image.ibb.co/g1GrCz/2048_logo.png)
 
-# Game 2048 IA #
+# Game 2048 AI #
 
 This is an artificial intelligence project. Pretend using AI techniques to play the 2048's game.
 It is based on training through simple heuristics of road exploration.
