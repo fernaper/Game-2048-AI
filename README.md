@@ -29,7 +29,7 @@ Note: If you want to re-train your neural network without generating more traini
 ## How to test: ##
 
 - Execute `python3 Game2048 play`
-- If you want to see more games just change the commando to: `python3 Game2048 play --games=10`
+- If you want to see more games just change the command to: `python3 Game2048 play --games=10`
 
 ## How to play the game manually: ##
 
@@ -38,10 +38,10 @@ Note: If you want to re-train your neural network without generating more traini
 ## Credits: ##
 
  The base code of the Game (not the artificial intelligence) was made by [yangshun](https://github.com/yangshun/2048-python).
- I made some changes on the code, mainly to adapt it to play and train the neural network.
+ I made some changes on the code, mainly to adapt it to play and train the neuronal network.
 
- The rest of the code was created The rest of the code has been created entirely by Fernando Pérez (@fernaperg).
+ The rest of the code has been created entirely by Fernando Pérez (@fernaperg).
 
 ## LICENSE: ##
 
- This code is free to use, but look carefully at the License file.
+ This code is free to use, but look carefully at the [LICENSE](LICENSE) file.
