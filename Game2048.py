@@ -1,14 +1,15 @@
 import puzzle
 import inv_puzzle
+import config as conf
+
 import random
 import time
-import gym
-import numpy as np
 import tflearn
 import click
+import sys
 import copy
+import numpy as np
 
-import config as conf
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.estimator import regression
 from statistics import mean, median
@@ -19,11 +20,11 @@ def cli():
     pass
 
 @cli.command('play')
-@click.option('--heuristic', default='ia')
-@click.option('--model', default='basic')
-@click.option('--games', default=1)
+@click.option('--model', default='explorer')            # Name of our model
+@click.option('--games', default=1)                     # Number of games
+@click.option('--heuristic', default='network')         # network/explorer/manual
 def play(heuristic, model, games):
-    if heuristic == 'ia':
+    if heuristic == 'network':
         ia_move(model, True, games)
     elif heuristic == 'explorer':
         explorer_game()
@@ -31,16 +32,15 @@ def play(heuristic, model, games):
         manual_move()
 
 @cli.command('train')
-@click.option('--model', default='basic')
-@click.option('--games', default=conf.initial_games)
-@click.option('--heuristic', default='random')
-@click.option('--training_data', default='')
-def train(model, games, heuristic, training_data):
-    if training_data == '':
-        training_data = initial_population(games, heuristic)
-    else:
-        training_data = np.load('saves/{}.npy'.format(training_data))
-    m = train_model(training_data)
+@click.option('--model', default='explorer')            # Model that we are going to train
+@click.option('--games', default=conf.initial_games)    # Number of training games (0 if you dont want to generate new training games)
+@click.option('--heuristic', default='explorer')        # random/corner/one_corner/explorer (now the best is explorer)
+def train(model, games, heuristic):
+    training_data = initial_population(games, heuristic)
+    try:
+        m = train_model(training_data)
+    except KeyboardInterrupt as e:
+        pass
     m.save('models/{}.model'.format(model))
 
 # MANUAL
@@ -257,50 +257,65 @@ def initial_population(games, heuristic='random'):
     scores = []
     accepted_scores = []
     i = 0
+
+    try:
+        training_data = np.load('saves/{}.npy'.format(heuristic)).tolist()
+        print('Initial information from: saves/{}.npy'.format(heuristic))
+    except Exception as e:
+        pass
+
     print('Starting to train ...')
-    while i < games or len(accepted_scores) < int(games*0.2):
-        gamegrid = inv_puzzle.Game()
-        score = 0
-        game_memory = []
-        prev_observation = []
+    try:
+        while i < games or len(accepted_scores) < int(games*0.2):
+            gamegrid = inv_puzzle.Game()
+            score = 0
+            game_memory = []
+            prev_observation = []
 
-        for _ in range(conf.goal_steps):
-            prev_observation = np.concatenate(gamegrid.matrix, axis=0)
-            invalid_moves = []
-            while equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
-                if heuristic == 'random':
-                    move = [x for x in conf.options if x not in invalid_moves]
-                    action = random.choice(move)
-                elif heuristic == 'corner':
-                    action = corner_choice(gamegrid.matrix, conf.options, invalid_moves)
-                elif heuristic == 'one_corner':
-                    action = left_down_corner_choice(gamegrid.matrix, conf.options, invalid_moves)
-                elif heuristic == 'explorer':
-                    action, s = explorer_move(gamegrid, conf.options, 2) # Max depth == 2
+            for _ in range(conf.goal_steps):
+                prev_observation = np.concatenate(gamegrid.matrix, axis=0)
+                invalid_moves = []
+                while equals_grid(np.concatenate(gamegrid.matrix, axis=0), prev_observation):
+                    if heuristic == 'random':
+                        move = [x for x in conf.options if x not in invalid_moves]
+                        action = random.choice(move)
+                    elif heuristic == 'corner':
+                        action = corner_choice(gamegrid.matrix, conf.options, invalid_moves)
+                    elif heuristic == 'one_corner':
+                        action = left_down_corner_choice(gamegrid.matrix, conf.options, invalid_moves)
+                    elif heuristic == 'explorer':
+                        action, _ = explorer_move(gamegrid, conf.options, 3) # Max depth == 3
+                        if action in invalid_moves: # Just in case it fail
+                            action = random.choice([x for x in conf.options if x not in invalid_moves])
 
-                invalid_moves.append(action)
-                done = gamegrid.move(action)
+                    invalid_moves.append(action)
+                    done = gamegrid.move(action)
 
-            game_memory.append([prev_observation, action])
-            score += gamegrid.score - score # How much we win with this move
+                game_memory.append([prev_observation, action])
+                score += gamegrid.score - score # How much we win with this move
 
-            if done:
-                break
+                if done:
+                    break
 
-        if score >= conf.score_requirement:
-            accepted_scores.append(score)
+            if score >= conf.score_requirement:
+                accepted_scores.append(score)
 
-            for data in game_memory:
-                output = [0,0,0,0]
-                output[conf.options.index(data[1])] = 1
-                training_data.append([data[0], output])
+                for data in game_memory:
+                    output = [0,0,0,0]
+                    output[conf.options.index(data[1])] = 1
+                    training_data.append([data[0], output])
 
-        scores.append(score)
-        i += 1
-        print ('Game: {}, Passed: {}/{}, Score: {}'.format(i, len(accepted_scores), int(games*0.2), score))
+            scores.append(score)
+            i += 1
+            print ('Game: {}, Passed: {}/{}, Score: {}'.format(i, len(accepted_scores), int(games*0.2), score))
+    except KeyboardInterrupt as e:
+        print('Training stoped')
+        training_data_save = np.array(training_data)
+        np.save('saves/{}.npy'.format(heuristic), training_data_save)
+        sys.exit()
 
     training_data_save = np.array(training_data)
-    #np.save('saved.npy', training_data_save)
+    np.save('saves/{}.npy'.format(heuristic), training_data_save)
 
     print('Average accepted score: ', mean(accepted_scores))
     print('Median accepted score: ', median(accepted_scores))

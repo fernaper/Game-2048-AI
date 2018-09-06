@@ -1,5 +1,3 @@
-import time
-
 # Default configurations
 #          UP   lEFT    DOWN   RIGHT
 options = [38,  37,     40,     39]
@@ -14,9 +12,5 @@ end_game =  27
 
 LR = 1e-3
 goal_steps = 20000
-score_requirement = 4096
-initial_games = 10000
-
-_tick2_frame=0
-_tick2_fps=20000000 # real raw FPS
-_tick2_t0=time.time()
+score_requirement = 8192
+initial_games = 2000
