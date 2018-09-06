@@ -1,4 +1,4 @@
-![Game 2048](https://ibb.co/k0ThKe)
+![Game 2048](https://image.ibb.co/g1GrCz/2048_logo.png)
 
 # Game 2048 IA #
 
