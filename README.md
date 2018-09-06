@@ -1,4 +1,4 @@
-![Game 2048]()
+![Game 2048](https://ibb.co/k0ThKe)
 
 # Game 2048 IA #
 
