@@ -54,6 +54,8 @@ def manual_move():
 
     try:
         training_data = np.load('saves/manual.npy').tolist()
+        i = training_data[-1]
+        training_data = training_data [:-1]
         print('Continuing manual training')
     except Exception as e:
         print('First manual training, good luck!')
@@ -90,6 +92,7 @@ def manual_move():
     scores.append(gamegrid.score)
 
     if training_data:
+        training_data.append(i+1)
         np.save('saves/manual.npy',np.array(training_data))
 
 # IA
@@ -260,7 +263,10 @@ def initial_population(games, heuristic='random'):
 
     try:
         training_data = np.load('saves/{}.npy'.format(heuristic)).tolist()
-        print('Initial information from: saves/{}.npy'.format(heuristic))
+        initial_i = training_data[-1]
+        i = initial_i
+        training_data = training_data[:-1]
+        print('Initial information from: saves/{}.npy with {} games'.format(heuristic, i))
     except Exception as e:
         pass
 
@@ -271,7 +277,7 @@ def initial_population(games, heuristic='random'):
             score = 0
             game_memory = []
             prev_observation = []
-
+            choices = []
             for _ in range(conf.goal_steps):
                 prev_observation = np.concatenate(gamegrid.matrix, axis=0)
                 invalid_moves = []
@@ -287,19 +293,18 @@ def initial_population(games, heuristic='random'):
                         action, _ = explorer_move(gamegrid, conf.options, 3) # Max depth == 3
                         if action in invalid_moves: # Just in case it fail
                             action = random.choice([x for x in conf.options if x not in invalid_moves])
-
                     invalid_moves.append(action)
                     done = gamegrid.move(action)
-
+                choices.append(action)
                 game_memory.append([prev_observation, action])
                 score += gamegrid.score - score # How much we win with this move
 
                 if done:
                     break
 
-            if score >= conf.score_requirement:
+            save_score = score >= conf.score_requirement and have_2048(gamegrid)
+            if save_score:
                 accepted_scores.append(score)
-
                 for data in game_memory:
                     output = [0,0,0,0]
                     output[conf.options.index(data[1])] = 1
@@ -307,21 +312,38 @@ def initial_population(games, heuristic='random'):
 
             scores.append(score)
             i += 1
-            print ('Game: {}, Passed: {}/{}, Score: {}'.format(i, len(accepted_scores), int(games*0.2), score))
+            print ('Game: {}, Passed: {}/{}, Score: {}, Saved: {}'.format(i, len(accepted_scores)+initial_i, int(games*0.2), score, save_score))
+            print('w: {}%, a: {}%, s: {}%, d: {}%'.format(
+                round(choices.count(conf.options[0])/len(choices)*100,2),
+                round(choices.count(conf.options[1])/len(choices)*100,2),
+                round(choices.count(conf.options[2])/len(choices)*100,2),
+                round(choices.count(conf.options[3])/len(choices)*100,2)
+            ))
     except KeyboardInterrupt as e:
         print('Training stoped')
-        training_data_save = np.array(training_data)
-        np.save('saves/{}.npy'.format(heuristic), training_data_save)
+        if i - initial_i > 0:
+            training_data.append(i)
+            training_data_save = np.array(training_data)
+            np.save('saves/{}.npy'.format(heuristic), training_data_save)
         sys.exit()
 
-    training_data_save = np.array(training_data)
-    np.save('saves/{}.npy'.format(heuristic), training_data_save)
+    if i - initial_i > 0:
+        training_data.append(i)
+        training_data_save = np.array(training_data)
+        np.save('saves/{}.npy'.format(heuristic), training_data_save)
 
-    print('Average accepted score: ', mean(accepted_scores))
-    print('Median accepted score: ', median(accepted_scores))
-    print(Counter(accepted_scores))
+        print('Average accepted score: ', mean(accepted_scores))
+        print('Median accepted score: ', median(accepted_scores))
+        print(Counter(accepted_scores))
 
     return training_data
+
+def have_2048(gamegrid):
+    for i in range(len(gamegrid.matrix)):
+        for j in range(len(gamegrid.matrix[0])):
+            if gamegrid.matrix[i][j]>=2048:
+                return True
+    return False
 
 # The neural network model that uses the IA
 def neural_network_model(input_size):
